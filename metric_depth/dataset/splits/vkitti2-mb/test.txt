@@ -1,0 +1,10 @@
+/w/339/kecenyao/dataset/vKitti2-mb/rgb/1665-5.jpg /w/339/kecenyao/dataset/vKitti2-mb/depth/1665.png
+/w/339/kecenyao/dataset/vKitti2-mb/rgb/1950-9.jpg /w/339/kecenyao/dataset/vKitti2-mb/depth/1950.png
+/w/339/kecenyao/dataset/vKitti2-mb/rgb/298-6.jpg /w/339/kecenyao/dataset/vKitti2-mb/depth/298.png
+/w/339/kecenyao/dataset/vKitti2-mb/rgb/1187-7.jpg /w/339/kecenyao/dataset/vKitti2-mb/depth/1187.png
+/w/339/kecenyao/dataset/vKitti2-mb/rgb/1595-5.jpg /w/339/kecenyao/dataset/vKitti2-mb/depth/1595.png
+/w/339/kecenyao/dataset/vKitti2-mb/rgb/1223-4.jpg /w/339/kecenyao/dataset/vKitti2-mb/depth/1223.png
+/w/339/kecenyao/dataset/vKitti2-mb/rgb/653.jpg /w/339/kecenyao/dataset/vKitti2-mb/depth/653.png
+/w/339/kecenyao/dataset/vKitti2-mb/rgb/1909-4.jpg /w/339/kecenyao/dataset/vKitti2-mb/depth/1909.png
+/w/339/kecenyao/dataset/vKitti2-mb/rgb/562-8.jpg /w/339/kecenyao/dataset/vKitti2-mb/depth/562.png
+/w/339/kecenyao/dataset/vKitti2-mb/rgb/1620-2.jpg /w/339/kecenyao/dataset/vKitti2-mb/depth/1620.png

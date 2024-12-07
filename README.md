@@ -1,3 +1,40 @@
+<h1>Blur-Aware Depth Estimation</h1>
+In order to make the depth estimation more robust to blur, we propose a new method for depth estimation that is aware of the blur in the image. We prepare a dataset by using stable diffusion augment and fine-tune the Depth Anything V2 model on it.
+
+Here is the flowchart of our method:
+<!-- flowchart  -->
+![Flowchart](./assets/flowchart.png)
+
+
+## Usage
+Inference:
+1. Download the our fine-tuned model from [here](https://www.dropbox.com/scl/fi/2rob6dov8m5fg61e7628x/depth_anything_v2_mb-last.pth?rlkey=ecd3uh9bm1uqs8uwlipp3qnoq&st=5jw3o3rc&dl=0) and put it under the `checkpoints` directory.
+2. Run the following command to do inference:
+```bash
+cd metric_depth
+python run.py \
+  --encoder vitb \
+  --load-from ../checkpoints/depth_anything_v2_mb-last.pth \
+  --max-depth 80 \
+  --img-path ./dataset/samples/raw --outdir ./dataset/samples/ours-last --pred-only --grayscale
+```
+
+Training:
+1. Prepare the dataset based on the [instructions](https://www.dropbox.com/scl/fo/nubil5rt2e98e6tjo8wpl/AFyzNrEg18ycFK5R2ozWu9U/Stable-Diffusion-Augment-Dataset?dl=0&preview=README.md&rlkey=p162jbexwef8j7kmb12ejq9f1&subfolder_nav_tracking=1) by using stable diffusion augment and put it under the `dataset` directory.
+2. go to `metric_depth` folder
+```bash
+cd metric_depth
+```
+3. Modify the `dataset` path in the `train.py` script.
+4. Run the following command to do training:
+```bash
+bash dist_train.sh
+```
+This is the final project for the course CSC2529 Computational Imaging.
+Authors: Kecen Yao, Boyang Li, Jinyang Zhao
+<hr>
+
+Below is the original README.md for Depth Anything V2.
 <div align="center">
 <h1>Depth Anything V2</h1>
 

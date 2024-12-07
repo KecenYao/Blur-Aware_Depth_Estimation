@@ -27,7 +27,7 @@ from util.utils import init_log
 parser = argparse.ArgumentParser(description='Depth Anything V2 for Metric Depth Estimation')
 
 parser.add_argument('--encoder', default='vitl', choices=['vits', 'vitb', 'vitl', 'vitg'])
-parser.add_argument('--dataset', default='hypersim', choices=['hypersim', 'vkitti'])
+parser.add_argument('--dataset', default='hypersim', choices=['hypersim', 'vkitti', 'vkitti2-mb'])
 parser.add_argument('--img-size', default=518, type=int)
 parser.add_argument('--min-depth', default=0.001, type=float)
 parser.add_argument('--max-depth', default=20, type=float)
@@ -63,6 +63,8 @@ def main():
         trainset = Hypersim('dataset/splits/hypersim/train.txt', 'train', size=size)
     elif args.dataset == 'vkitti':
         trainset = VKITTI2('dataset/splits/vkitti2/train.txt', 'train', size=size)
+    elif args.dataset == 'vkitti2-mb':
+        trainset = VKITTI2('dataset/splits/vkitti2-mb/train.txt', 'train', size=size)
     else:
         raise NotImplementedError
     trainsampler = torch.utils.data.distributed.DistributedSampler(trainset)
@@ -72,6 +74,8 @@ def main():
         valset = Hypersim('dataset/splits/hypersim/val.txt', 'val', size=size)
     elif args.dataset == 'vkitti':
         valset = KITTI('dataset/splits/kitti/val.txt', 'val', size=size)
+    elif args.dataset == 'vkitti2-mb':
+        valset = VKITTI2('dataset/splits/vkitti2-mb/val.txt', 'val', size=size)
     else:
         raise NotImplementedError
     valsampler = torch.utils.data.distributed.DistributedSampler(valset)
@@ -89,14 +93,14 @@ def main():
     
     if args.pretrained_from:
         model.load_state_dict({k: v for k, v in torch.load(args.pretrained_from, map_location='cpu').items() if 'pretrained' in k}, strict=False)
-    
+        
     model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
     model.cuda(local_rank)
     model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[local_rank], broadcast_buffers=False,
                                                       output_device=local_rank, find_unused_parameters=True)
-    
+
     criterion = SiLogLoss().cuda(local_rank)
-    
+
     optimizer = AdamW([{'params': [param for name, param in model.named_parameters() if 'pretrained' in name], 'lr': args.lr},
                        {'params': [param for name, param in model.named_parameters() if 'pretrained' not in name], 'lr': args.lr * 10.0}],
                       lr=args.lr, betas=(0.9, 0.999), weight_decay=0.01)
@@ -104,6 +108,7 @@ def main():
     total_iters = args.epochs * len(trainloader)
     
     previous_best = {'d1': 0, 'd2': 0, 'd3': 0, 'abs_rel': 100, 'sq_rel': 100, 'rmse': 100, 'rmse_log': 100, 'log10': 100, 'silog': 100}
+    best_d1 = 0  # Track best d1 score for saving best model
     
     for epoch in range(args.epochs):
         if rank == 0:
@@ -114,7 +119,6 @@ def main():
                             previous_best['rmse_log'], previous_best['log10'], previous_best['silog']))
         
         trainloader.sampler.set_epoch(epoch + 1)
-        
         model.train()
         total_loss = 0
         
@@ -127,7 +131,6 @@ def main():
                 img = img.flip(-1)
                 depth = depth.flip(-1)
                 valid_mask = valid_mask.flip(-1)
-            
             pred = model(img)
             
             loss = criterion(pred, depth, (valid_mask == 1) & (depth >= args.min_depth) & (depth <= args.max_depth))
@@ -146,9 +149,13 @@ def main():
             
             if rank == 0:
                 writer.add_scalar('train/loss', loss.item(), iters)
-            
-            if rank == 0 and i % 100 == 0:
-                logger.info('Iter: {}/{}, LR: {:.7f}, Loss: {:.3f}'.format(i, len(trainloader), optimizer.param_groups[0]['lr'], loss.item()))
+                writer.add_scalar('train/learning_rate', optimizer.param_groups[0]['lr'], iters)
+                if i % 100 == 0:
+                    logger.info('Iter: {}/{}, LR: {:.7f}, Loss: {:.3f}'.format(i, len(trainloader), optimizer.param_groups[0]['lr'], loss.item()))
+                if i % 500 == 0 or i == 1:
+                    writer.add_image('train/input_image', img[0].cpu(), iters)
+                    writer.add_image('train/ground_truth', depth[0].cpu().unsqueeze(0), iters)
+                    writer.add_image('train/prediction', pred[0].detach().cpu().unsqueeze(0), iters)
         
         model.eval()
         
@@ -158,9 +165,8 @@ def main():
         nsamples = torch.tensor([0.0]).cuda()
         
         for i, sample in enumerate(valloader):
-            
             img, depth, valid_mask = sample['image'].cuda().float(), sample['depth'].cuda()[0], sample['valid_mask'].cuda()[0]
-            
+                
             with torch.no_grad():
                 pred = model(img)
                 pred = F.interpolate(pred[:, None], depth.shape[-2:], mode='bilinear', align_corners=True)[0, 0]
@@ -190,7 +196,19 @@ def main():
             print()
             
             for name, metric in results.items():
-                writer.add_scalar(f'eval/{name}', (metric / nsamples).item(), epoch)
+                metric_value = (metric / nsamples).item()
+                writer.add_scalar(f'eval/{name}', metric_value, epoch)
+            
+            if i % 100 == 0:
+                writer.add_image('val/input_image', img[0].cpu(), epoch)
+                writer.add_image('val/ground_truth', depth.cpu().unsqueeze(0), epoch)
+                writer.add_image('val/prediction', pred.detach().cpu().unsqueeze(0), epoch)
+            
+            writer.add_scalars('metrics/summary', {
+                'd1': previous_best['d1'],
+                'abs_rel': previous_best['abs_rel'],
+                'rmse': previous_best['rmse']
+            }, epoch)
         
         for k in results.keys():
             if k in ['d1', 'd2', 'd3']:
@@ -206,6 +224,14 @@ def main():
                 'previous_best': previous_best,
             }
             torch.save(checkpoint, os.path.join(args.save_path, 'latest.pth'))
+            
+            if epoch % 10 == 0:
+                torch.save(checkpoint, os.path.join(args.save_path, f'epoch_{epoch}.pth'))
+            
+            current_d1 = (results['d1'] / nsamples).item()
+            if current_d1 > best_d1:
+                best_d1 = current_d1
+                torch.save(checkpoint, os.path.join(args.save_path, 'best.pth'))
 
 
 if __name__ == '__main__':

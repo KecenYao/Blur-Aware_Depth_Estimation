@@ -16,7 +16,7 @@ if __name__ == '__main__':
     parser.add_argument('--input-size', type=int, default=518)
     parser.add_argument('--outdir', type=str, default='./vis_depth')
     
-    parser.add_argument('--encoder', type=str, default='vitl', choices=['vits', 'vitb', 'vitl', 'vitg'])
+    parser.add_argument('--encoder', type=str, default='vitl', choices=['vits', 'vitb', 'vitl', 'vitg', 'mb-best', 'mb-last'])
     
     parser.add_argument('--pred-only', dest='pred_only', action='store_true', help='only display the prediction')
     parser.add_argument('--grayscale', dest='grayscale', action='store_true', help='do not apply colorful palette')
@@ -29,11 +29,27 @@ if __name__ == '__main__':
         'vits': {'encoder': 'vits', 'features': 64, 'out_channels': [48, 96, 192, 384]},
         'vitb': {'encoder': 'vitb', 'features': 128, 'out_channels': [96, 192, 384, 768]},
         'vitl': {'encoder': 'vitl', 'features': 256, 'out_channels': [256, 512, 1024, 1024]},
-        'vitg': {'encoder': 'vitg', 'features': 384, 'out_channels': [1536, 1536, 1536, 1536]}
+        'vitg': {'encoder': 'vitg', 'features': 384, 'out_channels': [1536, 1536, 1536, 1536]},
+        'mb-best': {'encoder': 'vitb', 'features': 128, 'out_channels': [96, 192, 384, 768]},
+        'mb-last': {'encoder': 'vitb', 'features': 128, 'out_channels': [96, 192, 384, 768]},
     }
     
     depth_anything = DepthAnythingV2(**model_configs[args.encoder])
-    depth_anything.load_state_dict(torch.load(f'checkpoints/depth_anything_v2_{args.encoder}.pth', map_location='cpu'))
+    loaded_model = torch.load(f'checkpoints/depth_anything_v2_{args.encoder}.pth', map_location='cpu')
+    if 'epoch' in loaded_model:
+        print('epoch', loaded_model['epoch'])
+    if 'model' in loaded_model:
+        state_dict = loaded_model['model']
+        new_state_dict = {}
+        for k, v in state_dict.items():
+            if k.startswith('module.'):
+                new_state_dict[k[7:]] = v
+            else:
+                new_state_dict[k] = v
+        depth_anything.load_state_dict(new_state_dict)
+    else:
+        depth_anything.load_state_dict(loaded_model)
+    
     depth_anything = depth_anything.to(DEVICE).eval()
     
     if os.path.isfile(args.img_path):
@@ -55,6 +71,7 @@ if __name__ == '__main__':
         raw_image = cv2.imread(filename)
         
         depth = depth_anything.infer_image(raw_image, args.input_size)
+        print('all zeros:', np.all(depth == 0))
         
         depth = (depth - depth.min()) / (depth.max() - depth.min()) * 255.0
         depth = depth.astype(np.uint8)

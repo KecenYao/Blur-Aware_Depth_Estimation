@@ -1,0 +1,1 @@
+srun --partition=gpunodes -c 1 --mem=16G --gres=gpu:rtx_4090:1 -t 60 run.sh

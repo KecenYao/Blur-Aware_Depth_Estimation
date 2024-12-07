@@ -16,7 +16,7 @@ if __name__ == '__main__':
     parser.add_argument('--input-size', type=int, default=518)
     parser.add_argument('--outdir', type=str, default='./vis_depth')
     
-    parser.add_argument('--encoder', type=str, default='vitl', choices=['vits', 'vitb', 'vitl', 'vitg'])
+    parser.add_argument('--encoder', type=str, default='vitl', choices=['vits', 'vitb', 'vitl', 'vitg', 'mb-best', 'mb-last'])
     parser.add_argument('--load-from', type=str, default='checkpoints/depth_anything_v2_metric_hypersim_vitl.pth')
     parser.add_argument('--max-depth', type=float, default=20)
     
@@ -36,7 +36,21 @@ if __name__ == '__main__':
     }
     
     depth_anything = DepthAnythingV2(**{**model_configs[args.encoder], 'max_depth': args.max_depth})
-    depth_anything.load_state_dict(torch.load(args.load_from, map_location='cpu'))
+    loaded_model = torch.load(args.load_from, map_location='cpu')
+    if 'epoch' in loaded_model:
+        print('epoch', loaded_model['epoch'])
+    if 'model' in loaded_model:
+        state_dict = loaded_model['model']
+        new_state_dict = {}
+        for k, v in state_dict.items():
+            if k.startswith('module.'):
+                new_state_dict[k[7:]] = v
+            else:
+                new_state_dict[k] = v
+        depth_anything.load_state_dict(new_state_dict)
+    else:
+        depth_anything.load_state_dict(loaded_model)
+    
     depth_anything = depth_anything.to(DEVICE).eval()
     
     if os.path.isfile(args.img_path):
@@ -71,7 +85,10 @@ if __name__ == '__main__':
         else:
             depth = (cmap(depth)[:, :, :3] * 255)[:, :, ::-1].astype(np.uint8)
         
-        output_path = os.path.join(args.outdir, os.path.splitext(os.path.basename(filename))[0] + '.png')
+        basename = os.path.splitext(os.path.basename(filename))[0]
+        basename = basename.replace('rgb_', 'depth_')
+        output_path = os.path.join(args.outdir, basename + '.png')
+        
         if args.pred_only:
             cv2.imwrite(output_path, depth)
         else:
