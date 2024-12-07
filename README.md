@@ -5,7 +5,7 @@ Here is the flowchart of our method:
 <!-- flowchart  -->
 ![Flowchart](./assets/flowchart.png)
 
-
+View the ![paper](./assets/paper.pdf) for this project.
 ## Usage
 Inference:
 1. Download the our fine-tuned model from [here](https://www.dropbox.com/scl/fi/2rob6dov8m5fg61e7628x/depth_anything_v2_mb-last.pth?rlkey=ecd3uh9bm1uqs8uwlipp3qnoq&st=5jw3o3rc&dl=0) and put it under the `checkpoints` directory.
@@ -20,7 +20,7 @@ python run.py \
 ```
 
 Training:
-1. Prepare the dataset based on the [instructions](https://www.dropbox.com/scl/fo/nubil5rt2e98e6tjo8wpl/AFyzNrEg18ycFK5R2ozWu9U/Stable-Diffusion-Augment-Dataset?dl=0&preview=README.md&rlkey=p162jbexwef8j7kmb12ejq9f1&subfolder_nav_tracking=1) by using stable diffusion augment and put it under the `dataset` directory.
+1. Prepare the dataset based on the [instructions](https://github.com/Frankli05211/CSC2529-Project-Stable-Diffusion-Model) by using stable diffusion augment and put it under the `dataset` directory.
 2. go to `metric_depth` folder
 ```bash
 cd metric_depth
@@ -31,6 +31,7 @@ cd metric_depth
 bash dist_train.sh
 ```
 This is the final project for the course CSC2529 Computational Imaging.
+
 Authors: Kecen Yao, Boyang Li, Jinyang Zhao
 <hr>
 
